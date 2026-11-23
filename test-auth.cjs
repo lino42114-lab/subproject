@@ -1,0 +1,23 @@
+const assert=require('node:assert/strict');
+const {handler}=require('./netlify/functions/auth');
+const event=(action,extra={})=>({path:'/.netlify/functions/auth/'+action,httpMethod:'GET',headers:{},...extra});
+(async()=>{
+  for(const key of ['SITE_URL','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','SESSION_SECRET'])delete process.env[key];
+  assert.equal((await handler(event('start'))).statusCode,503);
+  Object.assign(process.env,{SITE_URL:'https://test.example',GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'test-secret',SESSION_SECRET:'s'.repeat(64)});
+  let r=await handler(event('start'));assert.equal(r.statusCode,302);
+  const url=new URL(r.headers.Location);assert.equal(url.searchParams.get('redirect_uri'),'https://test.example/.netlify/functions/auth/callback');assert.equal(url.searchParams.get('code_challenge_method'),'S256');
+  const cookie=r.multiValueHeaders['Set-Cookie'][0].split(';')[0];
+  r=await handler(event('callback',{headers:{cookie},queryStringParameters:{state:'bad',code:'x'}}));assert.match(r.headers.Location,/auth_error=state/);
+  r=await handler(event('callback',{headers:{cookie},queryStringParameters:{state:url.searchParams.get('state'),error:'access_denied'}}));assert.match(r.headers.Location,/auth_error=denied/);
+  global.fetch=async address=>({ok:true,json:async()=>address.includes('/token')?{access_token:'token'}:{sub:'id',email:'test@example.com',email_verified:true,name:'Test'}});
+  r=await handler(event('callback',{headers:{cookie},queryStringParameters:{state:url.searchParams.get('state'),code:'x'}}));assert.equal(r.headers.Location,'https://test.example/?signed_in=1');
+  const sessionCookie=r.multiValueHeaders['Set-Cookie'][1].split(';')[0];assert.match(r.multiValueHeaders['Set-Cookie'][1],/HttpOnly; Secure; SameSite=Lax/);
+  r=await handler(event('session',{headers:{cookie:sessionCookie}}));assert.equal(JSON.parse(r.body).user.name,'Test');
+  r=await handler(event('session',{headers:{cookie:sessionCookie+'x'}}));assert.equal(JSON.parse(r.body).user,null);
+  r=await handler(event('logout',{httpMethod:'POST',headers:{origin:'https://evil.example'}}));assert.equal(r.statusCode,403);
+  r=await handler(event('logout',{httpMethod:'POST',headers:{origin:'https://test.example'}}));assert.match(r.multiValueHeaders['Set-Cookie'][0],/Max-Age=0/);
+  global.fetch=async()=>{throw Error('offline');};
+  r=await handler(event('callback',{headers:{cookie},queryStringParameters:{state:url.searchParams.get('state'),code:'x'}}));assert.match(r.headers.Location,/auth_error=provider/);
+  console.log('PASS OAuth: missing configuration, PKCE, state, denial, callback, signed session, tampering, logout CSRF, logout, provider failure (mock Google)');
+})().catch(e=>{console.error(e);process.exitCode=1;});
