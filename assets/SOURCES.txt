@@ -1,0 +1,2 @@
+demo-poster.png: still frame recovered from the user-supplied reference capture/screenshot-768.png (video rectangle at 86,2378,272,480). Used only as a demo poster; no claim of video playback.
+mascot.svg: existing project mascot markup moved to an image asset.

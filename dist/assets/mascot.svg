@@ -1,0 +1,9 @@
+<svg class="mascot-art" viewBox="0 0 210 210" xmlns="http://www.w3.org/2000/svg" aria-label="น้องซับ">
+        <ellipse cx="105" cy="188" rx="56" ry="10" fill="#E7D8F5"></ellipse>
+        <path d="M45 40h120a26 26 0 0 1 26 26v70a26 26 0 0 1-26 26H92l-22 24v-24H45a26 26 0 0 1-26-26V66a26 26 0 0 1 26-26z" fill="#C9B6F2" stroke="#A98FE6" stroke-width="4"></path>
+        <ellipse cx="72" cy="112" rx="12" ry="8" fill="#FF9EC4" opacity="0.7"></ellipse><ellipse cx="138" cy="112" rx="12" ry="8" fill="#FF9EC4" opacity="0.7"></ellipse>
+        <circle cx="82" cy="92" r="8.5" fill="#5B4A72"></circle><circle cx="85" cy="89" r="2.6" fill="#fff"></circle>
+        <circle cx="128" cy="92" r="8.5" fill="#5B4A72"></circle><circle cx="131" cy="89" r="2.6" fill="#fff"></circle>
+        <path d="M95 104q10 10 20 0" fill="none" stroke="#5B4A72" stroke-width="4" stroke-linecap="round"></path>
+        <rect x="66" y="128" width="78" height="15" rx="7.5" fill="#fff" opacity="0.9"></rect><rect x="70" y="131" width="30" height="9" rx="4.5" fill="#FFE08A"></rect>
+      </svg>
