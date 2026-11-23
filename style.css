@@ -119,3 +119,8 @@ header nav{font-family:Prompt,sans-serif;font-size:13.5px;font-weight:600}
 #mp4-panel input[type=color] {width:2.6rem}
 #mp4-panel a {color:#6036ab;font-weight:700}
 #mp4-panel [hidden],#mp4-panel[hidden] {display:none!important}
+
+.caption-row {border:1px solid var(--border);border-radius:12px;padding:12px;margin:12px 0;text-align:left}
+.caption-row label {display:inline-flex!important;flex-direction:column;margin-right:12px;gap:4px}
+.caption-row input[type=number] {width:110px;padding:7px}
+.caption-row textarea {margin-top:10px}

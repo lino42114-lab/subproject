@@ -24,7 +24,7 @@ openFile=function(file){
   if(!file)return;
   if(file.size>LIMIT){modal('ไฟล์เกิน 400 MB','<p role="alert">ขนาดสูงสุด 400,000,000 ไบต์ ไม่เริ่มอ่านหรือส่งไฟล์นี้</p>');return;}
   if(!file.size||! /\.(mp4|mov|webm|mp3|wav|m4a|ogg)$/i.test(file.name)){modal('ไฟล์ไม่รองรับ','<p role="alert">เลือก MP4, MOV, WebM, MP3, WAV, M4A หรือ OGG ที่มีเสียง</p>');return;}
-  modal('ถอดเสียงและสร้างคำบรรยาย',`<p>${escapeText(file.name)} · ${(file.size/1000000).toFixed(1)} MB</p><video id="source-media" class="local-preview" controls playsinline></video><p>ประมวลผลในเครื่อง ไม่อัปโหลดไฟล์ ใช้เวลาอย่างน้อยเท่าความยาวคลิปและเวลาดึงโมเดลครั้งแรก กรุณาเปิดหน้านี้ไว้</p><label>ภาษาพูด <select id="speech-language"><option value="thai">ไทย</option><option value="english">English</option></select></label><button class="primary" id="transcribe">เริ่มถอดเสียงฟรี</button><button id="cancel-transcribe" hidden>ยกเลิก</button><p role="status" aria-live="polite" id="work-status">พร้อมอ่านไฟล์ในเครื่อง · ขึ้นกับ codec และกำลังเครื่อง ยังไม่ยืนยันการทดสอบไฟล์จริงขนาด 400 MB</p><progress id="work-progress" max="100" value="0"></progress><div id="cues"></div><button id="save-srt" disabled>ดาวน์โหลด SRT</button> <button id="save-vtt" disabled>ดาวน์โหลด VTT</button><section id="mp4-panel" hidden>
+  modal('ถอดเสียงและสร้างคำบรรยาย',`<p>${escapeText(file.name)} · ${(file.size/1000000).toFixed(1)} MB</p><video id="source-media" class="local-preview" controls playsinline></video><p>ประมวลผลในเครื่อง ไม่อัปโหลดไฟล์ ใช้เวลาอย่างน้อยเท่าความยาวคลิปและเวลาดึงโมเดลครั้งแรก กรุณาเปิดหน้านี้ไว้</p><label>ภาษาพูด <select id="speech-language"><option value="thai">ไทย</option><option value="english">English</option></select></label><button class="primary" id="transcribe">เริ่มถอดเสียงฟรี</button><button id="cancel-transcribe" hidden>ยกเลิก</button> <button id="manual-cue" type="button">เพิ่มคำบรรยายเอง</button><p role="status" aria-live="polite" id="work-status">พร้อมอ่านไฟล์ในเครื่อง · ขึ้นกับ codec และกำลังเครื่อง ยังไม่ยืนยันการทดสอบไฟล์จริงขนาด 400 MB</p><progress id="work-progress" max="100" value="0"></progress><div id="cues"></div><button id="save-srt" disabled>ดาวน์โหลด SRT</button> <button id="save-vtt" disabled>ดาวน์โหลด VTT</button><section id="mp4-panel" hidden>
     <h3>วิดีโอพร้อมคำบรรยาย</h3>
     <fieldset><legend>รูปแบบซับ</legend>
       <label>ฟอนต์ <select name="font"><option value="Noto Sans Thai" data-file="NotoSansThai-Bold.ttf">ไม่มีเชิง</option><option value="Noto Serif Thai" data-file="NotoSerifThai-Bold.ttf">มีเชิง</option></select></label>
@@ -46,8 +46,50 @@ openFile=function(file){
   const observer=new MutationObserver(()=>{if(!root.isConnected)disposeFile();});observer.observe(document.body,{childList:true});
   media.onerror=()=>{stop();status.textContent='อ่านไฟล์ไม่ได้: codec ไม่รองรับหรือไฟล์เสีย ลอง MP4 (H.264/AAC) หรือ WAV/MP3';};
   cancel.onclick=()=>{stop();status.textContent='ยกเลิกแล้ว ผลที่ถอดเสร็จยังดาวน์โหลดได้';};
-  function render(){const list=root.querySelector('#cues');list.replaceChildren();cues.forEach((cue,i)=>{const label=document.createElement('label');label.textContent=timestamp(cue.start)+' → '+timestamp(cue.end);const input=document.createElement('textarea');input.value=cue.text;input.setAttribute('aria-label','คำบรรยาย '+(i+1));input.oninput=()=>cue.text=input.value;label.append(input);list.append(label);});root.querySelectorAll('#save-srt,#save-vtt').forEach(b=>b.disabled=!cues.length);exporter.refresh();}
-  for(const format of ['srt','vtt'])root.querySelector('#save-'+format).onclick=()=>{const vtt=format==='vtt';const text=(vtt?'WEBVTT\n\n':'')+cues.filter(c=>c.text.trim()).map((c,i)=>`${vtt?'':i+1+'\n'}${timestamp(c.start,vtt)} --> ${timestamp(c.end,vtt)}\n${c.text.replace(/\r?\n/g,' ')}\n`).join('\n');const link=document.createElement('a'),blob=URL.createObjectURL(new Blob([text],{type:vtt?'text/vtt':'application/x-subrip'}));link.href=blob;link.download=file.name.replace(/\.[^.]+$/,'')+'.'+format;link.click();setTimeout(()=>URL.revokeObjectURL(blob),1000);};
+  root.querySelector('#manual-cue').onclick=()=>{
+    if(!Number.isFinite(media.duration)||media.duration<=0){
+      status.textContent='กำลังอ่านความยาววิดีโอ กรุณารอสักครู่แล้วลองใหม่';return;
+    }
+    const from=Math.min(media.currentTime||0,Math.max(0,media.duration-0.1));
+    cues.push({start:from,end:Math.min(media.duration,from+3),text:''});
+    cues.sort((a,b)=>a.start-b.start);
+    render();
+    root.querySelector('#cues textarea:last-of-type')?.focus();
+    status.textContent='พิมพ์คำบรรยายและแก้เวลาเริ่มต้น/สิ้นสุดเป็นวินาที';
+  };
+  function render(){
+    const list=root.querySelector('#cues');list.replaceChildren();
+    cues.forEach((cue,i)=>{
+      const row=document.createElement('div');row.className='caption-row';
+      for(const [field,title] of [['start','เริ่ม (วินาที)'],['end','สิ้นสุด (วินาที)']]){
+        const label=document.createElement('label');label.textContent=title;
+        const input=document.createElement('input');input.type='number';input.min='0';
+        input.max=String(media.duration||0);input.step='0.1';input.value=String(Math.round(cue[field]*10)/10);
+        input.setAttribute('aria-label',title+' ช่วงที่ '+(i+1));
+        input.onchange=()=>{
+          const value=Number(input.value);
+          if(!Number.isFinite(value)||value<0||value>media.duration||
+            (field==='start'&&value>=cue.end)||(field==='end'&&value<=cue.start)){
+            input.value=String(Math.round(cue[field]*10)/10);
+            status.textContent='เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด และอยู่ภายในความยาววิดีโอ';
+            return;
+          }
+          cue[field]=value;exporter.refresh();
+        };
+        label.append(input);row.append(label);
+      }
+      const input=document.createElement('textarea');input.value=cue.text;
+      input.setAttribute('aria-label','คำบรรยาย '+(i+1));
+      input.oninput=()=>{cue.text=input.value;exporter.refresh();};
+      row.append(input);
+      const remove=document.createElement('button');remove.type='button';remove.textContent='ลบช่วงนี้';
+      remove.onclick=()=>{cues.splice(i,1);render();};
+      row.append(remove);list.append(row);
+    });
+    root.querySelectorAll('#save-srt,#save-vtt').forEach(b=>b.disabled=!cues.some(c=>c.text.trim()&&c.end>c.start));
+    exporter.refresh();
+  }
+  for(const format of ['srt','vtt'])root.querySelector('#save-'+format).onclick=()=>{const vtt=format==='vtt';const text=(vtt?'WEBVTT\n\n':'')+cues.filter(c=>c.text.trim()&&c.end>c.start).sort((a,b)=>a.start-b.start).map((c,i)=>`${vtt?'':i+1+'\n'}${timestamp(c.start,vtt)} --> ${timestamp(c.end,vtt)}\n${c.text.replace(/\r?\n/g,' ')}\n`).join('\n');const link=document.createElement('a'),blob=URL.createObjectURL(new Blob([text],{type:vtt?'text/vtt':'application/x-subrip'}));link.href=blob;link.download=file.name.replace(/\.[^.]+$/,'')+'.'+format;link.click();setTimeout(()=>URL.revokeObjectURL(blob),1000);};
   start.onclick=async()=>{
     start.disabled=true;cancel.hidden=false;media.controls=false;cues=[];render();
     try {
